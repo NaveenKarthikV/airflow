@@ -390,6 +390,7 @@ class SnowflakeSqlApiOperator(ResumableJobMixin, SQLExecuteQueryOperator):
             the exact count.
     :param token_life_time: lifetime of the JWT Token
     :param token_renewal_delta: Renewal time of the JWT Token
+    :param query_tag: (Optional) Query tag that you want to associate with the SQL statement.
     :param bindings: (Optional) Values of bind variables in the SQL statement.
             When executing the statement, Snowflake replaces placeholders (? and :name) in
             the statement with these specified values.
@@ -412,7 +413,7 @@ class SnowflakeSqlApiOperator(ResumableJobMixin, SQLExecuteQueryOperator):
     external_id_key = "snowflake_query_ids"
 
     template_fields: Sequence[str] = tuple(
-        set(SQLExecuteQueryOperator.template_fields) | {"snowflake_conn_id"}
+        set(SQLExecuteQueryOperator.template_fields) | {"snowflake_conn_id", "query_tag"}
     )
     conn_id_field = "snowflake_conn_id"
 
@@ -430,6 +431,7 @@ class SnowflakeSqlApiOperator(ResumableJobMixin, SQLExecuteQueryOperator):
         statement_count: int = 0,
         token_life_time: timedelta = LIFETIME,
         token_renewal_delta: timedelta = RENEWAL_DELTA,
+        query_tag: str | None = None,
         bindings: dict[str, Any] | None = None,
         timeout: int | None = None,
         deferrable: bool = conf.getboolean("operators", "default_deferrable", fallback=False),
@@ -447,6 +449,7 @@ class SnowflakeSqlApiOperator(ResumableJobMixin, SQLExecuteQueryOperator):
         self.statement_count = statement_count
         self.token_life_time = token_life_time
         self.token_renewal_delta = token_renewal_delta
+        self.query_tag = query_tag
         self.bindings = bindings
         self.timeout = timeout
         self.execute_async = False
@@ -489,7 +492,7 @@ class SnowflakeSqlApiOperator(ResumableJobMixin, SQLExecuteQueryOperator):
 
         self.log.info("Executing: %s", self.sql)
         self.query_ids = self._hook.execute_query(
-            self.sql, statement_count=self.statement_count, bindings=self.bindings, timeout=self.timeout
+            self.sql, statement_count=self.statement_count, query_tag=self.query_tag, bindings=self.bindings, timeout=self.timeout
         )
         self.log.info("List of query ids %s", self.query_ids)
 
@@ -561,7 +564,7 @@ class SnowflakeSqlApiOperator(ResumableJobMixin, SQLExecuteQueryOperator):
         """Submit the SQL for execution and return the resulting statement handles."""
         self.log.info("Executing: %s", self.sql)
         self.query_ids = self._hook.execute_query(
-            self.sql, statement_count=self.statement_count, bindings=self.bindings, timeout=self.timeout
+            self.sql, statement_count=self.statement_count, query_tag=self.query_tag, bindings=self.bindings, timeout=self.timeout
         )
         self.log.info("List of query ids %s", self.query_ids)
         return cast("JsonValue", self.query_ids)
